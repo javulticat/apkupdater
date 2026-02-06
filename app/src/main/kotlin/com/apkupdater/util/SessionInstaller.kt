@@ -13,10 +13,10 @@ import com.apkupdater.BuildConfig
 import com.apkupdater.data.ui.AppInstallProgress
 import com.apkupdater.ui.activity.MainActivity
 import com.topjohnwu.superuser.Shell
+import kotlinx.coroutines.sync.Mutex
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipFile
 
 
@@ -29,7 +29,7 @@ class SessionInstaller(
         const val INSTALL_ACTION = "installAction"
     }
 
-    private val installMutex = AtomicBoolean(false)
+    private val installMutex = Mutex()
 
     suspend fun install(id: Int, packageName: String, stream: InputStream) =
         install(id, packageName, listOf(stream))
@@ -79,7 +79,7 @@ class SessionInstaller(
         return res
     }
 
-    fun finish() = installMutex.unlock()
+    fun finish() { if (installMutex.isLocked) installMutex.unlock() }
 
     fun checkPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -99,7 +99,7 @@ class SessionInstaller(
         // Copy file to disk.
         // TODO: Find a way to do this without saving file
         val file = File(context.cacheDir, randomUUID())
-        stream.copyTo(file.outputStream())
+        file.outputStream().use { output -> stream.copyTo(output) }
 
         // Get entries
         val zip = ZipFile(file)

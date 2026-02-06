@@ -16,6 +16,7 @@ import com.apkupdater.prefs.Prefs
 import com.apkupdater.service.GitHubService
 import com.apkupdater.util.combine
 import com.apkupdater.util.filterVersionTag
+import com.apkupdater.util.retryWithBackoff
 import io.github.g00fy2.versioncompare.Version
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -72,7 +73,14 @@ class GitHubRepository(
 
     private fun selfCheck() = flow {
         val releases = service.getReleases().filter { filterPreRelease(it) }
-        val versions = getVersions(releases[0].name)
+        val release = releases.firstOrNull()
+
+        if (release == null || release.assets.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
+
+        val versions = getVersions(release.name)
 
         if (versions.second > BuildConfig.VERSION_CODE.toLong()) {
             emit(listOf(AppUpdate(
@@ -83,14 +91,14 @@ class GitHubRepository(
                 versionCode = versions.second,
                 oldVersionCode = BuildConfig.VERSION_CODE.toLong(),
                 source = GitHubSource,
-                link = Link.Url(releases[0].assets[0].browser_download_url),
-                whatsNew = releases[0].body
+                link = Link.Url(release.assets[0].browser_download_url),
+                whatsNew = release.body
             )))
         } else {
             // We need to emit empty so it can be combined later
             emit(listOf())
         }
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("GitHubRepository", "Error checking self-update.", it)
     }
@@ -128,7 +136,7 @@ class GitHubRepository(
         } else {
             emit(emptyList())
         }
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("GitHubRepository", "Error fetching releases for $packageName.", it)
     }

@@ -13,6 +13,7 @@ import com.apkupdater.data.ui.getVersionCode
 import com.apkupdater.prefs.Prefs
 import com.apkupdater.service.FdroidService
 import com.google.gson.Gson
+import com.apkupdater.util.retryWithBackoff
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import java.io.InputStream
@@ -35,12 +36,12 @@ class FdroidRepository(
         val updates = data.apps
             .asSequence()
             .filter { appNames.contains(it.packageName) }
-            .filter { filterSignature(apps.getApp(it.packageName)!!, it) }
-            .map { FdroidUpdate(data.packages[it.packageName]!![0], it) }
+            .filter { app -> apps.getApp(app.packageName)?.let { filterSignature(it, app) } ?: false }
+            .mapNotNull { app -> data.packages[app.packageName]?.firstOrNull()?.let { FdroidUpdate(it, app) } }
             .filter { it.apk.versionCode > apps.getVersionCode(it.app.packageName) }
             .parseUpdates(apps)
         emit(updates)
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("FdroidRepository", "Error looking for updates.", it)
     }
@@ -50,7 +51,7 @@ class FdroidRepository(
         val data = jarToJson(response.byteStream())
         val updates = data.apps
             .asSequence()
-            .map { FdroidUpdate(data.packages[it.packageName]!![0], it) }
+            .mapNotNull { app -> data.packages[app.packageName]?.firstOrNull()?.let { FdroidUpdate(it, app) } }
             .filter { it.app.name.contains(text, true) || it.app.packageName.contains(text, true) || it.apk.apkName.contains(text, true) }
             .parseUpdates(null)
         emit(Result.success(updates))
@@ -90,13 +91,14 @@ class FdroidRepository(
     }
 
     private fun jarToJson(stream: InputStream): FdroidData {
-        val jar = JarInputStream(stream)
-        var entry = jar.nextJarEntry
-        while (entry != null) {
-            if (entry.name == "index-v1.json") {
-                return Gson().fromJson(jar.reader(), FdroidData::class.java)
+        JarInputStream(stream).use { jar ->
+            var entry = jar.nextJarEntry
+            while (entry != null) {
+                if (entry.name == "index-v1.json") {
+                    return Gson().fromJson(jar.reader(), FdroidData::class.java)
+                }
+                entry = jar.nextJarEntry
             }
-            entry = jar.nextJarEntry
         }
         return FdroidData()
     }

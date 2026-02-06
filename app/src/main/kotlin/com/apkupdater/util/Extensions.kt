@@ -26,19 +26,20 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.core.content.ContextCompat
 import com.apkupdater.R
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.yield
 import okhttp3.OkHttpClient
 import java.security.MessageDigest
 import java.text.DecimalFormatSymbols
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -108,13 +109,6 @@ fun millisUntilHour(hour: Int): Long {
 	return calendar.timeInMillis - System.currentTimeMillis()
 }
 
-suspend fun AtomicBoolean.lock() {
-	while (get()) yield()
-	set(true)
-}
-
-fun AtomicBoolean.unlock() = set(false)
-
 fun Intent.getIntentExtra(): Intent? = when {
 	Build.VERSION.SDK_INT > 33 -> getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
 	else -> @Suppress("DEPRECATION") getParcelableExtra(Intent.EXTRA_INTENT)
@@ -161,3 +155,16 @@ fun filterVersionTag(version: String) = version
 fun Float.to2f() = String
 	.format("%.2f", this)
 	.replace('.', DecimalFormatSymbols.getInstance(Locale.getDefault()).decimalSeparator)
+
+fun <T> Flow<T>.retryWithBackoff(
+	maxRetries: Int = 3,
+	initialDelayMs: Long = 1000L,
+	isRetryable: (Throwable) -> Boolean = { it is java.io.IOException }
+) = retryWhen { cause, attempt ->
+	if (attempt < maxRetries && isRetryable(cause)) {
+		delay(initialDelayMs * (1L shl attempt.toInt()))
+		true
+	} else {
+		false
+	}
+}
