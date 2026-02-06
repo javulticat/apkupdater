@@ -99,7 +99,7 @@ class SessionInstaller(
         // Copy file to disk.
         // TODO: Find a way to do this without saving file
         val file = File(context.cacheDir, randomUUID())
-        stream.copyTo(file.outputStream())
+        file.outputStream().use { output -> stream.copyTo(output) }
 
         // Get entries
         val zip = ZipFile(file)

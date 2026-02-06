@@ -90,13 +90,14 @@ class FdroidRepository(
     }
 
     private fun jarToJson(stream: InputStream): FdroidData {
-        val jar = JarInputStream(stream)
-        var entry = jar.nextJarEntry
-        while (entry != null) {
-            if (entry.name == "index-v1.json") {
-                return Gson().fromJson(jar.reader(), FdroidData::class.java)
+        JarInputStream(stream).use { jar ->
+            var entry = jar.nextJarEntry
+            while (entry != null) {
+                if (entry.name == "index-v1.json") {
+                    return Gson().fromJson(jar.reader(), FdroidData::class.java)
+                }
+                entry = jar.nextJarEntry
             }
-            entry = jar.nextJarEntry
         }
         return FdroidData()
     }
