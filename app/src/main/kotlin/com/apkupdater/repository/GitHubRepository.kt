@@ -72,7 +72,14 @@ class GitHubRepository(
 
     private fun selfCheck() = flow {
         val releases = service.getReleases().filter { filterPreRelease(it) }
-        val versions = getVersions(releases[0].name)
+        val release = releases.firstOrNull()
+
+        if (release == null || release.assets.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
+
+        val versions = getVersions(release.name)
 
         if (versions.second > BuildConfig.VERSION_CODE.toLong()) {
             emit(listOf(AppUpdate(
@@ -83,8 +90,8 @@ class GitHubRepository(
                 versionCode = versions.second,
                 oldVersionCode = BuildConfig.VERSION_CODE.toLong(),
                 source = GitHubSource,
-                link = Link.Url(releases[0].assets[0].browser_download_url),
-                whatsNew = releases[0].body
+                link = Link.Url(release.assets[0].browser_download_url),
+                whatsNew = release.body
             )))
         } else {
             // We need to emit empty so it can be combined later

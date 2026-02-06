@@ -35,8 +35,8 @@ class FdroidRepository(
         val updates = data.apps
             .asSequence()
             .filter { appNames.contains(it.packageName) }
-            .filter { filterSignature(apps.getApp(it.packageName)!!, it) }
-            .map { FdroidUpdate(data.packages[it.packageName]!![0], it) }
+            .filter { app -> apps.getApp(app.packageName)?.let { filterSignature(it, app) } ?: false }
+            .mapNotNull { app -> data.packages[app.packageName]?.firstOrNull()?.let { FdroidUpdate(it, app) } }
             .filter { it.apk.versionCode > apps.getVersionCode(it.app.packageName) }
             .parseUpdates(apps)
         emit(updates)
@@ -50,7 +50,7 @@ class FdroidRepository(
         val data = jarToJson(response.byteStream())
         val updates = data.apps
             .asSequence()
-            .map { FdroidUpdate(data.packages[it.packageName]!![0], it) }
+            .mapNotNull { app -> data.packages[app.packageName]?.firstOrNull()?.let { FdroidUpdate(it, app) } }
             .filter { it.app.name.contains(text, true) || it.app.packageName.contains(text, true) || it.apk.apkName.contains(text, true) }
             .parseUpdates(null)
         emit(Result.success(updates))
