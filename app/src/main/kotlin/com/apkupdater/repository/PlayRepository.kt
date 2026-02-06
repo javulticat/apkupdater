@@ -11,6 +11,7 @@ import com.apkupdater.data.ui.getPackageNames
 import com.apkupdater.data.ui.getVersion
 import com.apkupdater.data.ui.getVersionCode
 import com.apkupdater.prefs.Prefs
+import com.apkupdater.util.retryWithBackoff
 import com.apkupdater.util.play.NativeDeviceInfoProvider
 import com.apkupdater.util.play.PlayHttpClient
 import com.aurora.gplayapi.data.models.App
@@ -113,7 +114,7 @@ class PlayRepository(
                 )
             }
         emit(updates)
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("PlayRepository", "Error looking for updates.", it)
     }

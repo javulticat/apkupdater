@@ -10,6 +10,7 @@ import com.apkupdater.data.ui.AppInstalled
 import com.apkupdater.data.ui.getApp
 import com.apkupdater.data.ui.getSignature
 import com.apkupdater.prefs.Prefs
+import com.apkupdater.util.retryWithBackoff
 import com.apkupdater.service.ApkPureService
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.catch
@@ -33,7 +34,7 @@ class ApkPureRepository(
             .filter { filterBeta(it) }
             .map { it.toAppUpdate(apps.getApp(it.package_name)) }
         emit(updates)
-    }.catch {
+    }.retryWithBackoff().catch {
         Log.e("ApkPureRepository", it.message, it)
         emit(emptyList())
     }

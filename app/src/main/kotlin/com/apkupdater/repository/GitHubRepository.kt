@@ -16,6 +16,7 @@ import com.apkupdater.prefs.Prefs
 import com.apkupdater.service.GitHubService
 import com.apkupdater.util.combine
 import com.apkupdater.util.filterVersionTag
+import com.apkupdater.util.retryWithBackoff
 import io.github.g00fy2.versioncompare.Version
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -90,7 +91,7 @@ class GitHubRepository(
             // We need to emit empty so it can be combined later
             emit(listOf())
         }
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("GitHubRepository", "Error checking self-update.", it)
     }
@@ -128,7 +129,7 @@ class GitHubRepository(
         } else {
             emit(emptyList())
         }
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("GitHubRepository", "Error fetching releases for $packageName.", it)
     }

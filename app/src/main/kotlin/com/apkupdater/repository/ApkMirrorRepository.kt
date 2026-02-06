@@ -21,6 +21,7 @@ import com.apkupdater.service.ApkMirrorService
 import com.apkupdater.util.combine
 import com.apkupdater.util.isAndroidTv
 import com.apkupdater.util.orFalse
+import com.apkupdater.util.retryWithBackoff
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
@@ -82,7 +83,7 @@ class ApkMirrorRepository(
 
     private fun appExists(apps: List<String>) = flow {
         emit(service.appExists(AppExistsRequest(apps, buildIgnoreList())).data)
-    }.catch {
+    }.retryWithBackoff().catch {
         emit(emptyList())
         Log.e("ApkMirrorRepository", "Error getting updates.", it)
     }

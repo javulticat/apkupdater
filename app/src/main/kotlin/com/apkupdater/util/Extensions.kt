@@ -26,8 +26,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.core.content.ContextCompat
 import com.apkupdater.R
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -161,3 +163,16 @@ fun filterVersionTag(version: String) = version
 fun Float.to2f() = String
 	.format("%.2f", this)
 	.replace('.', DecimalFormatSymbols.getInstance(Locale.getDefault()).decimalSeparator)
+
+fun <T> Flow<T>.retryWithBackoff(
+	maxRetries: Int = 3,
+	initialDelayMs: Long = 1000L,
+	isRetryable: (Throwable) -> Boolean = { it is java.io.IOException }
+) = retryWhen { cause, attempt ->
+	if (attempt < maxRetries && isRetryable(cause)) {
+		delay(initialDelayMs * (1L shl attempt.toInt()))
+		true
+	} else {
+		false
+	}
+}
